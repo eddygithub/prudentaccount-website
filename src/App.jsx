@@ -22,9 +22,9 @@ async function getJSON(path) {
 }
 
 export default function App() {
-  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '291077676066-11tpv3g8r6eo9j33uvdk0vidd1sam77v.apps.googleusercontent.com'
+  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
   const [user, setUser] = useState(null)
-
+  console.log(clientId)
   useEffect(() => {
     // restore session from backend
     getJSON('/me').then(setUser).catch(() => {})

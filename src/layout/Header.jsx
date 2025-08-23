@@ -10,8 +10,6 @@ export default function Header({ user, onSignOut }) {
   const [accountOpen, setAccountOpen] = useState(false);
 
   const isAuthenticated = !!user;
-
-  console.log(isAuthenticated ? "User is authenticated" : user);
   const displayName = user?.name || user?.email || "";
   const initial = (displayName.trim()[0] || "U").toUpperCase();
 
