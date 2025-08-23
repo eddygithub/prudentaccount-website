@@ -1,34 +1,66 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
+// src/App.jsx
+import { useEffect, useState } from 'react'
 import './App.css'
-import Login from './pages/Login'
 import Home from './pages/Home'
 import Services from './pages/Services'
-import Carriers from "./pages/Carriers";
-import Reviews from "./pages/Review";
-import Reasons from "./pages/Reasons";
-import Contact from "./pages/Contact";
-import Layout from "./layout/Layout";
-import Quote from "./pages/Quote";
-import { BrowserRouter, Routes, Route, NavLink, Outlet, useNavigate } from "react-router-dom";
+import Carriers from './pages/Carriers'
+import Reviews from './pages/Review'
+import Reasons from './pages/Reasons'
+import Contact from './pages/Contact'
+import Layout from './layout/Layout'
+import Quote from './pages/Quote'
+import Login from '@/auth/Login'
+import { AuthProvider } from './auth/AuthProvider'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { googleLogout } from '@react-oauth/google'
 
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8080'
+async function getJSON(path) {
+  const r = await fetch(`${API_BASE}${path}`, { credentials: 'include' })
+  if (!r.ok) throw new Error(`HTTP ${r.status}`)
+  return r.json()
+}
 
-// --- App with Routes ---
 export default function App() {
+  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '291077676066-11tpv3g8r6eo9j33uvdk0vidd1sam77v.apps.googleusercontent.com'
+  const [user, setUser] = useState(null)
+
+  useEffect(() => {
+    // restore session from backend
+    getJSON('/me').then(setUser).catch(() => {})
+  }, [])
+
+  const handleSignOut = async () => {
+    try { await fetch(`${API_BASE}/auth/logout`, { method: "POST", credentials: "include" }); } catch {}
+    setUser(null);
+  };
+
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<Layout />}> 
-          <Route index element={<Home />} />
-          <Route path="services" element={<Services />} />
-          <Route path="reasons" element={<Reasons />} />
-          <Route path="carriers" element={<Carriers />} />
-          <Route path="reviews" element={<Reviews />} />
-          <Route path="contact" element={<Contact />} />
-          <Route path="quote" element={<Quote />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
-  );
+    <AuthProvider clientId={clientId}>
+      <BrowserRouter>
+        <Routes>
+          <Route element={<Layout user={user} onSignOut={handleSignOut} />}>
+            <Route index element={<Home />} />
+            <Route path="services" element={<Services />} />
+            <Route path="reasons" element={<Reasons />} />
+            <Route path="carriers" element={<Carriers />} />
+            <Route path="reviews" element={<Reviews />} />
+            <Route path="contact" element={<Contact />} />
+            <Route path="quote" element={<Quote />} />
+            <Route
+              path="login"
+              element={
+                <Login
+                  onSignedIn={(p) => {
+                    setUser(p);
+                  }}
+                />
+              }
+            />
+
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
+  )
 }
