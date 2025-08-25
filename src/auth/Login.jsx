@@ -2,24 +2,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGoogleLogin } from "@react-oauth/google";
-
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
-
-async function postJSON(path, body) {
-  const r = await fetch(`${API_BASE}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify(body),
-  });
-  if (!r.ok) {
-    let msg = `HTTP ${r.status}`; try {
-      const j = await r.json(); if (j?.error || j?.message) msg += ` — ${j.error || j.message}`;
-    } catch {}
-    throw new Error(msg);
-  }
-  return r.json().catch(() => ({}));
-}
+import api from "@/lib/api";
 
 export default function LoginPage({ onSignedIn }) {
   const navigate = useNavigate();
@@ -28,11 +11,13 @@ export default function LoginPage({ onSignedIn }) {
 
   const login = useGoogleLogin({
     flow: "auth-code",
+    ux_mode: "popup",
     prompt: "select_account",     // always show the chooser (Atlas-style)
+    scope: "openid profile email",
     onSuccess: async ({ code }) => {
       setError(""); setLoading(true);
       try {
-        const profile = await postJSON("/auth/google/code", { code });
+        const profile = await api.authWithGoogleCode( code );
         onSignedIn?.(profile);
         navigate("/");
       } catch (e) {
