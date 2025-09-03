@@ -8,9 +8,15 @@ import { NavLink } from "react-router-dom";
 export default function Header({ user, onSignOut }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  
+  // unwrap either shape
+  const u = user?.profile ?? user;
 
-  const isAuthenticated = !!user;
-  const displayName = user?.name || user?.email || "";
+  // consider PENDING not authenticated (optional)
+  const isAuthenticated = !!u;
+
+  const displayName = u?.name || u?.email || "";
+  const picture = u?.picture || "";
   const initial = (displayName.trim()[0] || "U").toUpperCase();
 
   const linkClass = ({ isActive }) =>
@@ -49,9 +55,9 @@ export default function Header({ user, onSignOut }) {
                 aria-haspopup="menu"
                 className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
-                {user?.picture ? (
+                {u?.picture ? (
                   <img
-                    src={user.picture}
+                    src={u.picture}
                     alt={displayName || "User"}
                     className="h-6 w-6 rounded-full ring-1 ring-slate-300"
                     referrerPolicy="no-referrer"

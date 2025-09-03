@@ -15,7 +15,8 @@ export default function LoginPage({ onSignedIn }) {
     prompt: "select_account",     // always show the chooser (Atlas-style)
     scope: "openid profile email",
     onSuccess: async ({ code }) => {
-      setError(""); setLoading(true);
+      setError(""); 
+      setLoading(true);
       try {
         const profile = await api.authWithGoogleCode( code );
         onSignedIn?.(profile);

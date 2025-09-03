@@ -7,6 +7,7 @@ export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  
   useEffect(() => {
     setLoading(true);
     api.me().then(setUser).catch(() => setUser(null)).finally(() => setLoading(false));

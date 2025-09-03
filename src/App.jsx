@@ -13,54 +13,48 @@ import Login from "@/auth/Login";
 import Dashboard from "./pages/user/Dashboard";
 import Profile from "./pages/user/Profile";
 import { AuthProvider } from "./auth/AuthProvider";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { googleLogout } from "@react-oauth/google";
+import { Routes, Route, useNavigate } from "react-router-dom";
 import api from "./lib/api";
 
 export default function App() {
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
   const [user, setUser] = useState(null);
+  const navigate = useNavigate(); // now App is INSIDE <BrowserRouter> (in main.jsx)
+
   useEffect(() => {
-    // restore session from backend
     api.me().then(setUser).catch(() => setUser(null));
   }, []);
 
   const handleSignOut = async () => {
     try {
-      await api.logout();
-    } catch {}
-    setUser(null);
+      await api.logout();            // server clears refresh cookie; api clears access token
+      console.log("User signed out successfully.");
+    } finally {
+      setUser(null);                 // clear app user
+      navigate("/home", { replace: true }); // redirect to login
+    }
   };
 
   return (
     <AuthProvider clientId={clientId}>
-      <BrowserRouter>
-        <Routes>
-          <Route element={<Layout user={user} onSignOut={handleSignOut} />}>
-            <Route index element={<Home />} />
-            <Route path="home" element={<Home />} />
-            <Route path="services" element={<Services />} />
-            <Route path="reasons" element={<Reasons />} />
-            <Route path="carriers" element={<Carriers />} />
-            <Route path="reviews" element={<Reviews />} />
-            <Route path="contact" element={<Contact />} />
-            <Route path="quote" element={<Quote />} />
-            <Route
-              path="login"
-              element={
-                <Login
-                  onSignedIn={(p) => {
-                    setUser(p);
-                  }}
-                />
-              }
-            />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="profile" element={<Profile />} />  
-          </Route>
-
-        </Routes>
-      </BrowserRouter>
+      <Routes>
+        <Route element={<Layout user={user} onSignOut={handleSignOut} />}>
+          <Route index element={<Home />} />
+          <Route path="home" element={<Home />} />
+          <Route path="services" element={<Services />} />
+          <Route path="reasons" element={<Reasons />} />
+          <Route path="carriers" element={<Carriers />} />
+          <Route path="reviews" element={<Reviews />} />
+          <Route path="contact" element={<Contact />} />
+          <Route path="quote" element={<Quote />} />
+          <Route
+            path="login"
+            element={<Login onSignedIn={(p) => setUser(p)} />}
+          />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="profile" element={<Profile />} />
+        </Route>
+      </Routes>
     </AuthProvider>
   );
 }
