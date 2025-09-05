@@ -1,4 +1,3 @@
-// src/App.jsx
 import { useEffect, useState } from "react";
 import "./App.css";
 import Home from "./pages/Home";
@@ -12,6 +11,9 @@ import Quote from "./pages/Quote";
 import Login from "@/auth/Login";
 import Dashboard from "./pages/user/Dashboard";
 import Profile from "./pages/user/Profile";
+import Register from "./auth/Register";
+import CheckEmail from "./pages/CheckEmail";
+import VerifyEmail from "./pages/VerifyEmail";
 import { AuthProvider } from "./auth/AuthProvider";
 import { Routes, Route, useNavigate } from "react-router-dom";
 import api from "./lib/api";
@@ -53,6 +55,9 @@ export default function App() {
           />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="profile" element={<Profile />} />
+          <Route path="check-email" element={<CheckEmail />} />
+          <Route path="verify-email" element={<VerifyEmail onVerified={(p) => setUser(p)} />} />
+          <Route path="register" element={<Register onRegistered={(profile) => setUser(profile)} />} />
         </Route>
       </Routes>
     </AuthProvider>

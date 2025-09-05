@@ -1,38 +1,28 @@
+// src/components/form/Field.jsx
 export default function Field({ field, value, onChange }) {
-  const base =
-    "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30";
-
-  const { id, type = "text", label, placeholder, options, inputMode, required } = field;
-
-  if (type === "textarea") {
-    return (
-      <label className="text-sm text-slate-700">
-        {label}
-        <textarea
-          className={`mt-1 min-h-[96px] ${base}`}
-          placeholder={placeholder || label}
-          value={value ?? ""}
-          onChange={(e) => onChange(id, e.target.value)}
-          required={required}
-        />
-      </label>
-    );
-  }
+  const { id, type, label, required, placeholder, options, multiple, inputMode } = field;
 
   if (type === "select") {
     return (
       <label className="text-sm text-slate-700">
         {label}
         <select
-          className={`mt-1 ${base}`}
-          value={value ?? ""}
-          onChange={(e) => onChange(id, e.target.value)}
-          required={required}
+          id={id}
+          multiple={!!multiple}
+          value={multiple ? (value || []) : (value ?? "")}
+          onChange={(e) => {
+            if (multiple) {
+              const vals = Array.from(e.target.selectedOptions).map(o => o.value);
+              onChange(id, vals);
+            } else {
+              onChange(id, e.target.value);
+            }
+          }}
+          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
         >
-          {(options || []).map((opt) => (
-            <option key={opt.value ?? opt} value={opt.value ?? opt}>
-              {opt.label ?? opt}
-            </option>
+          {!multiple && <option value="">Select…</option>}
+          {(options || []).map(opt => (
+            <option key={opt} value={opt}>{opt}</option>
           ))}
         </select>
       </label>
@@ -41,31 +31,44 @@ export default function Field({ field, value, onChange }) {
 
   if (type === "checkbox") {
     return (
-      <label className="text-sm text-slate-700 inline-flex items-center gap-2">
+      <label className="flex items-center gap-2 text-sm text-slate-700">
         <input
-          id={id}
           type="checkbox"
-          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
           checked={!!value}
           onChange={(e) => onChange(id, e.target.checked)}
+          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
         />
         {label}
       </label>
     );
   }
 
-  // text, email, tel, date, number
+  if (type === "textarea") {
+    return (
+      <label className="text-sm text-slate-700">
+        {label}
+        <textarea
+          value={value ?? ""}
+          onChange={(e) => onChange(id, e.target.value)}
+          placeholder={placeholder}
+          className="mt-1 min-h-[96px] w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+        />
+      </label>
+    );
+  }
+
+  // text, email, tel, date, time, etc.
   return (
     <label className="text-sm text-slate-700">
       {label}
       <input
-        type={type}
+        type={type || "text"}
         inputMode={inputMode}
-        className={`mt-1 ${base}`}
-        placeholder={placeholder || label}
+        required={required}
+        placeholder={placeholder}
         value={value ?? ""}
         onChange={(e) => onChange(id, e.target.value)}
-        required={required}
+        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
       />
     </label>
   );

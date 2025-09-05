@@ -1,9 +1,10 @@
-// src/lib/api.jsx
-let ACCESS_TOKEN = null; // in-memory only
+let ACCESS_TOKEN = null; // in-memory only (clears on tab refresh)
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
-/** Optional client hints (match server CORS allow-list) */
+/* -------------------------
+   Client hints (CORS allow-listed)
+-------------------------- */
 function clientHeaders() {
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   return {
@@ -12,7 +13,9 @@ function clientHeaders() {
   };
 }
 
-/** Set / clear access token (in memory) */
+/* -------------------------
+   Access token helpers (in-memory)
+-------------------------- */
 export function setAccessToken(token) {
   ACCESS_TOKEN = token || null;
 }
@@ -23,7 +26,9 @@ export function clearAccessToken() {
   ACCESS_TOKEN = null;
 }
 
-/** Low-level fetch wrapper with auto refresh+retry */
+/* -------------------------
+   Low-level fetch with auto refresh + retry
+-------------------------- */
 async function request(method, path, body) {
   const headers = { ...clientHeaders() };
   if (ACCESS_TOKEN) headers.Authorization = `Bearer ${ACCESS_TOKEN}`;
@@ -33,21 +38,20 @@ async function request(method, path, body) {
     fetch(`${API_BASE}${path}`, {
       method,
       headers,
-      credentials: "include", // needed for refresh cookie
+      credentials: "include", // include refresh cookie
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
 
   let res = await run();
 
-  // If access token expired, try refresh once then retry the original request
-  if (res.status === 401 && path !== "/auth/refresh") {
+  // If access token expired, try refresh once, then retry original
+  if (res.status === 401 && path !== "/public/auth/refresh") {
     const ok = await refreshAccessToken();
     if (ok) {
-      // update header and retry
-      const h2 = { ...headers, Authorization: `Bearer ${ACCESS_TOKEN}` };
+      const retryHeaders = { ...headers, Authorization: `Bearer ${ACCESS_TOKEN}` };
       res = await fetch(`${API_BASE}${path}`, {
         method,
-        headers: h2,
+        headers: retryHeaders,
         credentials: "include",
         body: body !== undefined ? JSON.stringify(body) : undefined,
       });
@@ -55,7 +59,9 @@ async function request(method, path, body) {
   }
 
   if (!res.ok) {
-    // Build a helpful error
+    // 401 after refresh attempt → clear token so UI can react
+    if (res.status === 401) clearAccessToken();
+
     let msg = `HTTP ${res.status}`;
     try {
       const j = await res.json();
@@ -66,15 +72,16 @@ async function request(method, path, body) {
     throw err;
   }
 
-  // Handle empty bodies gracefully
   const ct = res.headers.get("content-type") || "";
   return ct.includes("application/json") ? res.json() : {};
 }
 
-/** Ask server to mint a new access token using the HttpOnly refresh cookie */
+/* -------------------------
+   Refresh access via HttpOnly cookie
+-------------------------- */
 async function refreshAccessToken() {
   try {
-    const res = await fetch(`${API_BASE}/auth/refresh`, {
+    const res = await fetch(`${API_BASE}/public/auth/refresh`, {
       method: "POST",
       credentials: "include",
       headers: clientHeaders(),
@@ -92,62 +99,106 @@ async function refreshAccessToken() {
 }
 
 /* -------------------------
-   Public API surface
+   Convenience wrappers
+-------------------------- */
+const get  = (p)      => request("GET", p);
+const post = (p, b)   => request("POST", p, b);
+const put  = (p, b)   => request("PUT", p, b);
+const del  = (p)      => request("DELETE", p);
+
+/* -------------------------
+   Auth + Registration API
 -------------------------- */
 
-/** Generic helpers */
-const get = (path) => request("GET", path);
-const post = (path, body) => request("POST", path, body);
-const put = (path, body) => request("PUT", path, body);
-const del = (path) => request("DELETE", path);
-
-/** Auth flows */
-
-/**
- * Exchange Google auth code for tokens+profile.
- * Returns: { requiresRegistration: boolean, accessToken: string, profile: {...} }
- * Side effect: stores access token in memory.
- */
+// Google (auth code → tokens + profile)
 async function authWithGoogleCode(code) {
-  const data = await post("/auth/google/code", { code });
+  const data = await post("/public/auth/google/code", { code });
+  if (data?.accessToken) setAccessToken(data.accessToken);
+  return data; // { requiresRegistration?, accessToken?, profile }
+}
+
+// Username/password login
+async function authWithPassword(email, password) {
+  const data = await post("/public/auth/login", { email, password });
+  if (data?.accessToken) setAccessToken(data.accessToken);
+  return data; // { accessToken, profile }
+}
+
+// Public registration (email verification flow)
+async function registerPublic(form) {
+  // form = { name, email, password, phone?, notes?, agreeToTerms: true }
+  const data = await post("/public/users/register", form);
+  // backend may return 202 (no token) or 200 (auto-login); both handled:
   if (data?.accessToken) setAccessToken(data.accessToken);
   return data;
 }
 
-/** Complete registration (works for PENDING users). Returns new accessToken + profile. */
+// Resend verification email
+async function resendVerification(email) {
+  return post("/public/email/resend-verification", { email });
+}
+
+// Verify email link
+async function verifyEmail(token) {
+  const data = await get(`/public/verify-email?token=${encodeURIComponent(token)}`);
+  if (data?.accessToken) setAccessToken(data.accessToken);
+  return data; // { accessToken, profile }
+}
+
+// Complete registration for PENDING users (requires Bearer)
 async function completeRegistration(form) {
   const data = await post("/users/register", form);
   if (data?.accessToken) setAccessToken(data.accessToken);
-  return data;
+  return data; // { accessToken, profile }
 }
 
-/** Get current user profile from server using Bearer access token */
+// Who am I (requires Bearer)
 async function me() {
-  return get("/me"); // throws if 401
+  return get("/me");
 }
 
-/** Logout: revokes via tokenVersion and clears refresh cookie. */
+// Logout (revokes + clears cookie + clears in-memory token)
 async function logout() {
   try {
-    await post("/auth/logout");
+    await post("/public/auth/logout");
   } finally {
     clearAccessToken();
   }
 }
 
-/** Export as both named and default for convenience */
+async function submitQuoteRequest(payload) {
+  // payload comes from buildPayload(coverage, contact, values)
+  // Example shape:
+  // { coverageType, contact: {...}, answers: {...}, meta: {...} }
+  return post("/public/quotes", payload); // 201 or 200 with {id}
+}
+
+/* -------------------------
+   Export
+-------------------------- */
 export const api = {
-  get,
-  post,
-  put,
-  del,
-  me,
-  logout,
-  authWithGoogleCode,
-  completeRegistration,
+  // generic
+  get, post, put, del,
+
+  // tokens
   setAccessToken,
   getAccessToken,
   clearAccessToken,
+
+  // auth
+  authWithGoogleCode,
+  authWithPassword,
+  refresh: () => post("/public/auth/refresh"),
+  logout,
+  me,
+
+  // registration
+  registerPublic,
+  resendVerification,
+  verifyEmail,
+  completeRegistration,
+
+  submitQuoteRequest,
 };
 
 export default api;

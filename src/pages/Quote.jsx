@@ -15,14 +15,15 @@ export default function Quote() {
 
   const schema = useMemo(() => COVERAGE_SCHEMAS[coverage] || [], [coverage]);
 
-  function objectFromFields(fields = []) {
-    const o = {};
-    for (const f of fields) {
-      // checkbox default false; others empty
-      o[f.id] = f.type === "checkbox" ? false : "";
-    }
-    return o;
+function objectFromFields(fields = []) {
+  const o = {};
+  for (const f of fields) {
+    if (f.type === "checkbox") o[f.id] = false;
+    else if (f.type === "select" && f.multiple) o[f.id] = [];
+    else o[f.id] = "";
   }
+  return o;
+}
 
   function updateContact(id, v) {
     setContact((prev) => ({ ...prev, [id]: v }));
@@ -53,7 +54,7 @@ export default function Quote() {
     setOk(false);
     try {
       const payload = buildPayload(coverage, contact, values);
-      await api.postJSON("/quotes/submit", payload);
+      await api.submitQuoteRequest(payload);
       setOk(true);
     } catch (e) {
       setError(e.message || "Failed to submit request.");
@@ -63,21 +64,16 @@ export default function Quote() {
   }
 
   return (
+      <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-200 antialiased flex items-center justify-center p-3">
     <section className="py-16 sm:py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <h2 className="text-3xl font-bold text-slate-900">Request a Quote</h2>
 
         <div className="mt-6 max-w-2xl rounded-2xl bg-white p-6 shadow-xl ring-1 ring-slate-200">
           <form className="grid grid-cols-1 gap-4" onSubmit={onSubmit}>
-            {/* Contact */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {CONTACT_FIELDS.map((f) => (
-                <Field key={f.id} field={f} value={contact[f.id]} onChange={updateContact} />
-              ))}
-            </div>
-
+            
             {/* Coverage selector */}
-            <label className="text-sm text-slate-700">
+            <label className="text-lg text-slate-700 font-bold">
               Coverage type
               <select
                 className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
@@ -91,6 +87,13 @@ export default function Quote() {
                 ))}
               </select>
             </label>
+            
+            {/* Contact */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {CONTACT_FIELDS.map((f) => (
+                <Field key={f.id} field={f} value={contact[f.id]} onChange={updateContact} />
+              ))}
+            </div>
 
             {/* Dynamic fields */}
             {visibleFields(schema, values).map((f) => (
@@ -119,5 +122,6 @@ export default function Quote() {
         </div>
       </div>
     </section>
+    </main>
   );
 }
