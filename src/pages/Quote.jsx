@@ -1,3 +1,4 @@
+import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
 import { useMemo, useState } from "react";
 import Field from "@/components/form/Field";
 import api from "@/lib/api";
@@ -10,19 +11,20 @@ export default function Quote() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [ok, setOk] = useState(false);
-
   const coverageOptions = Object.keys(COVERAGE_SCHEMAS);
-
   const schema = useMemo(() => COVERAGE_SCHEMAS[coverage] || [], [coverage]);
 
-function objectFromFields(fields = []) {
-  const o = {};
-  for (const f of fields) {
-    if (f.type === "checkbox") o[f.id] = false;
-    else if (f.type === "select" && f.multiple) o[f.id] = [];
-    else o[f.id] = "";
-  }
-  return o;
+  const { executeRecaptcha } = useGoogleReCaptcha();
+  const RECAPTCHA_ACTION = "quote_request"; // keep consistent with server check
+
+  function objectFromFields(fields = []) {
+    const o = {};
+    for (const f of fields) {
+      if (f.type === "checkbox") o[f.id] = false;
+      else if (f.type === "select" && f.multiple) o[f.id] = [];
+      else o[f.id] = "";
+    }
+    return o;
 }
 
   function updateContact(id, v) {
@@ -53,7 +55,19 @@ function objectFromFields(fields = []) {
     setError("");
     setOk(false);
     try {
+      if (!executeRecaptcha) {
+        throw new Error("reCAPTCHA not ready. Please try again.");
+      }
+      // 1) get a v3 token for a specific action
+      const recaptchaToken = await executeRecaptcha(RECAPTCHA_ACTION);
+
+      // 2) build your existing payload
       const payload = buildPayload(coverage, contact, values);
+
+      // 3) include token + action (server will verify)
+      payload.gotchaToken = recaptchaToken;
+      payload.gotchaAction = RECAPTCHA_ACTION;
+
       await api.submitQuoteRequest(payload);
       setOk(true);
     } catch (e) {
@@ -116,7 +130,6 @@ function objectFromFields(fields = []) {
                 </a>
               </p>
               {error && <p className="text-xs text-red-600">{error}</p>}
-              {ok && <p className="text-xs text-emerald-600">Thanks! We’ll get back to you shortly.</p>}
             </div>
           </form>
         </div>

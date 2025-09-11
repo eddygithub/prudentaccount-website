@@ -30,6 +30,7 @@ export function clearAccessToken() {
    Low-level fetch with auto refresh + retry
 -------------------------- */
 async function request(method, path, body) {
+  console.log("ACCESS_TOKEN", ACCESS_TOKEN);
   const headers = { ...clientHeaders() };
   if (ACCESS_TOKEN) headers.Authorization = `Bearer ${ACCESS_TOKEN}`;
   if (body !== undefined) headers["Content-Type"] = "application/json";
@@ -101,10 +102,10 @@ async function refreshAccessToken() {
 /* -------------------------
    Convenience wrappers
 -------------------------- */
-const get  = (p)      => request("GET", p);
-const post = (p, b)   => request("POST", p, b);
-const put  = (p, b)   => request("PUT", p, b);
-const del  = (p)      => request("DELETE", p);
+const get  = (p)    => request("GET", p);
+const post = (p, b) => request("POST", p, b);
+const put  = (p, b) => request("PUT", p, b);
+const del  = (p)    => request("DELETE", p);
 
 /* -------------------------
    Auth + Registration API
@@ -128,8 +129,7 @@ async function authWithPassword(email, password) {
 async function registerPublic(form) {
   // form = { name, email, password, phone?, notes?, agreeToTerms: true }
   const data = await post("/public/users/register", form);
-  // backend may return 202 (no token) or 200 (auto-login); both handled:
-  if (data?.accessToken) setAccessToken(data.accessToken);
+  if (data?.accessToken) setAccessToken(data.accessToken); // if backend auto-logs-in
   return data;
 }
 
@@ -166,11 +166,33 @@ async function logout() {
   }
 }
 
+/* -------------------------
+   Quotes
+-------------------------- */
 async function submitQuoteRequest(payload) {
-  // payload comes from buildPayload(coverage, contact, values)
-  // Example shape:
-  // { coverageType, contact: {...}, answers: {...}, meta: {...} }
-  return post("/public/quotes", payload); // 201 or 200 with {id}
+  return post("/public/quotes", payload); // 201 or 200 with { id }
+}
+
+async function getQuoteRequestCount(email) {
+  const res = await get(`/public/quotes/count/${encodeURIComponent(email)}`);
+  return res.count;
+}
+
+/* -------------------------
+   Push (FCM) tokens
+-------------------------- */
+
+// Save or upsert browser’s FCM token (public or authenticated; backend decides)
+async function saveFcmToken({ token, platform = "web"}) {
+  if (!token) throw new Error("FCM token is required");
+  // Uses the same request() wrapper so Authorization is added if present.
+  return post("/public/push/tokens", { token, platform });
+}
+
+// Remove token (on sign-out/uninstall)
+async function deleteFcmToken(token) {
+  if (!token) return true;
+  return del(`/public/push/tokens/${encodeURIComponent(token)}`);
 }
 
 /* -------------------------
@@ -198,7 +220,13 @@ export const api = {
   verifyEmail,
   completeRegistration,
 
+  // quotes
+  getQuoteRequestCount,
   submitQuoteRequest,
+
+  // FCM
+  saveFcmToken,
+  deleteFcmToken,
 };
 
 export default api;

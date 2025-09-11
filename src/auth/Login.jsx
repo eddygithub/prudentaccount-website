@@ -4,11 +4,12 @@ import { useNavigate, Link } from "react-router-dom";
 import { useGoogleLogin } from "@react-oauth/google";
 import GoogleButton from "react-google-button";
 import api from "@/lib/api";
+import { useAuth } from "@/auth/AuthProvider";
 
 export default function LoginPage({ onSignedIn }) {
   const navigate = useNavigate();
+  const { onAuthSuccess } = useAuth(); // ⬅️ from context
 
-  // form state
   const [error, setError] = useState("");
   const [submittingPwd, setSubmittingPwd] = useState(false);
   const [submittingGoogle, setSubmittingGoogle] = useState(false);
@@ -25,8 +26,15 @@ export default function LoginPage({ onSignedIn }) {
 
       const res = await api.authWithPassword(email, password);
       const profile = res?.profile ?? res;
+      const requiresRegistration = !!res?.requiresRegistration;
 
-      onSignedIn?.(profile);
+      if (requiresRegistration) {
+        navigate("/register", { replace: true });
+        return;
+      }
+
+      onSignedIn?.(profile);      // optional legacy callback
+      onAuthSuccess(profile);    
       navigate("/dashboard", { replace: true });
     } catch (err) {
       setError(err.message || "Sign in failed.");
@@ -39,19 +47,24 @@ export default function LoginPage({ onSignedIn }) {
   const loginWithGoogle = useGoogleLogin({
     flow: "auth-code",
     ux_mode: "popup",
-    prompt: "select_account", // always show chooser
+    prompt: "select_account",
     scope: "openid profile email",
     onSuccess: async ({ code }) => {
       setError("");
       setSubmittingGoogle(true);
       try {
         const res = await api.authWithGoogleCode(code);
-        // { accessToken, profile, requiresRegistration? }
         const profile = res?.profile ?? res;
         const requiresRegistration = !!res?.requiresRegistration;
 
-        onSignedIn?.(profile);
-        navigate(requiresRegistration ? "/register" : "/dashboard", { replace: true });
+        if (requiresRegistration) {
+          navigate("/register", { replace: true });
+          return;
+        }
+
+        onSignedIn?.(profile);    // optional legacy callback
+        onAuthSuccess(profile);   
+        navigate("/dashboard", { replace: true });
       } catch (e) {
         setError(e.message || "Google sign-in failed.");
       } finally {
@@ -131,13 +144,12 @@ export default function LoginPage({ onSignedIn }) {
             </div>
           </div>
 
-          {/* Google button (from react-google-button) */}
+          {/* Google button */}
           <div className="flex justify-center">
             <GoogleButton
               label={submittingGoogle ? "Opening Google…" : "Sign in with Google"}
               onClick={() => !submittingGoogle && loginWithGoogle()}
               disabled={submittingGoogle}
-              // You can tweak inline styles that the component supports:
               style={{ width: "100%" }}
               aria-label="Sign in with Google"
             />

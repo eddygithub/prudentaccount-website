@@ -269,9 +269,6 @@ export default function Header({ user, onSignOut }) {
 
           {/* Phone + Quote */}
           <div className="pt-2 flex items-center gap-3">
-            <a href="tel:+17184459898" className="text-sm font-medium text-slate-700">
-              (718) 445-9898
-            </a>
             <NavLink
               to="/quote"
               onClick={closeMobile}

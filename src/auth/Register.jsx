@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api, { getAccessToken } from "@/lib/api";
+import { useAuth } from "@/auth/AuthProvider";
 
 export default function Register({ onRegistered }) {
   const navigate = useNavigate();
@@ -45,6 +46,7 @@ export default function Register({ onRegistered }) {
         } else {
           // Already ACTIVE; no need to register — send them somewhere useful
           setMode("public");
+          
           navigate("/dashboard", { replace: true });
         }
       })

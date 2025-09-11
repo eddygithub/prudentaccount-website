@@ -1,17 +1,27 @@
 import { useEffect, useState } from "react";
 import { useNavigate, NavLink } from "react-router-dom";
 import api from "@/lib/api";
+import { useAuth } from "@/auth/AuthProvider";
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
+  const { user } = useAuth(); // <-- get loading from context
+  const [quoteCount, setQuoteCount] = useState(null);
+  const [ loading, setLoading ] = useState(null);
   
+  // Fetch quote count once we know the user's email
   useEffect(() => {
-    setLoading(true);
-    api.me().then(setUser).catch(() => setUser(null)).finally(() => setLoading(false));
-  }, []);
+  if (!user) {
+    setLoading(false); // immediately stop loading if no user
+    return;
+  }
+
+  setLoading(true);
+  api.getQuoteRequestCount(user.email)
+    .then((count) => setQuoteCount(count))
+    .catch(() => setQuoteCount(0))
+    .finally(() => setLoading(false));
+}, [user]);
 
   if (loading) {
     return (
@@ -59,13 +69,14 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Quick stats (placeholders you can wire to real data later) */}
+      {/* Quick stats */}
       <section className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { t: "Active Policies", v: "—", to: "/policies" },
           { t: "Open Claims", v: "—", to: "/claims" },
           { t: "Documents", v: "—", to: "/documents" },
           { t: "Renewals This Month", v: "—", to: "/renewals" },
+          ...(quoteCount > 0 ? [{ t: "Quote Requests", v: quoteCount, to: "/quote" }] : []),
         ].map((card) => (
           <NavLink
             key={card.t}
@@ -78,14 +89,11 @@ export default function Dashboard() {
         ))}
       </section>
 
-      {/* Recent activity (placeholder list) */}
+      {/* Recent activity (placeholder) */}
       <section className="mt-10">
         <h2 className="text-lg font-semibold text-slate-900">Recent Activity</h2>
         <ul className="mt-4 divide-y divide-slate-200 rounded-xl bg-white shadow-md ring-1 ring-slate-200">
-          {[
-            "Viewed Homeowners policy",
-            "Requested certificate of insurance",
-          ].map((item, i) => (
+          {["Viewed Homeowners policy", "Requested certificate of insurance"].map((item, i) => (
             <li key={i} className="p-4 text-sm text-slate-700">{item}</li>
           ))}
         </ul>
